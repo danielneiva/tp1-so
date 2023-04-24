@@ -1,0 +1,10 @@
+/usr/bin/ld: dccthread.o: in function `main':
+/home/danielneiva/Documents/UFMG/6-semestre/So/dccthread-assignment/dccthread.c:3: multiple definition of `main'; /tmp/cc3aa3f5.o:/home/danielneiva/Documents/UFMG/6-semestre/So/dccthread-assignment/tests/test1.c:12: first defined here
+/usr/bin/ld: /tmp/cc3aa3f5.o: in function `main':
+/home/danielneiva/Documents/UFMG/6-semestre/So/dccthread-assignment/tests/test1.c:13: undefined reference to `dccthread_init'
+collect2: error: ld returned 1 exit status
+/usr/bin/ld: dccthread.o: in function `main':
+/home/danielneiva/Documents/UFMG/6-semestre/So/dccthread-assignment/dccthread.c:3: multiple definition of `main'; /tmp/cchNAnPn.o:/home/danielneiva/Documents/UFMG/6-semestre/So/dccthread-assignment/tests/test1.c:12: first defined here
+/usr/bin/ld: /tmp/cchNAnPn.o: in function `main':
+/home/danielneiva/Documents/UFMG/6-semestre/So/dccthread-assignment/tests/test1.c:13: undefined reference to `dccthread_init'
+collect2: error: ld returned 1 exit status
