@@ -24,13 +24,16 @@ struct dccthread {
     char stack[STACKSIZE];
     void (*func)(int);
     int param;
+    int isRunning;
 };
 
 void schedule(void) {
-    dccthread_t *next;
+    dccthread_t *next, *self;
     while(thread_list->head != NULL) {
-        next = dlist_pop_left(thread_list);
+        next = (dccthread_t *)thread_list->head->data;
+        next->isRunning = 1;
         swapcontext(&manager, &next->context);
+        next = dlist_pop_left(thread_list);
         dlist_push_right(done_thread_list, next);
     }
 }
@@ -55,6 +58,7 @@ dccthread_t *dccthread_create(const char *name, void (*func)(int), int param) {
     dccthread_t *thread = malloc(sizeof(dccthread_t));
     getcontext(&thread->context);
     thread->name = name;
+    thread->isRunning = 0;
     thread->context.uc_stack.ss_sp = thread->stack;
     thread->context.uc_stack.ss_size = sizeof(thread->stack);
     thread->context.uc_link = &manager;
@@ -67,11 +71,34 @@ void dccthread_yield(void) {
     dccthread_t *current = dlist_pop_left(thread_list);
     if (current != NULL) {
         dlist_push_right(done_thread_list, current);
+        current->isRunning = 0;
         swapcontext(&current->context, &manager);
     }
 }
 
 dccthread_t *dccthread_self(void) {
-    struct dnode *head = thread_list->head;
-    return head == NULL ? NULL : (dccthread_t *) head->data;
+    struct dnode *node = thread_list->head;
+    dccthread_t *data;
+    while(node != NULL) {
+        data = (dccthread_t *) node->data;
+        if (data->isRunning == 1) return data;
+        node = node->next;
+    }
+    return NULL;
+}
+
+void dccthread_exit(void){
+    //
+}
+
+void dccthread_wait(dccthread_t *tid) {
+    //
+}
+
+void dccthread_sleep(struct timespec ts) {
+    //
+}
+
+const char * dccthread_name(dccthread_t *tid) {
+    return tid->name;
 }
