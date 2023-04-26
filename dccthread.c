@@ -7,7 +7,8 @@
 
 #define STACKSIZE 32768
 
-static ucontext_t manager;
+static ucontext_t manager, context1, context2;
+struct dlist thread_list;
 
 //#include "list.h"
 struct dccthread {
@@ -18,31 +19,21 @@ struct dccthread {
     int param;
 };
 
-struct dlist *thread_list;
-
 
 void dccthread_init(void (*func)(int), int param) {
-    // thread_list = dlist_create();
-    // //dccthread_t *manager = dccthread_create("manager", schedule, 0);
-
     dccthread_t *main = dccthread_create("main", func, param);
-    ucontext_t current;
-    swapcontext(&current, &main->context);
-    exit(0);
+    swapcontext(&manager, &main->context);
 }
 
 dccthread_t *dccthread_create(const char *name, void (*func)(int), int param) {
     dccthread_t *thread = malloc(sizeof(dccthread_t));
     getcontext(&thread->context);
-
+    thread->name = name;
     thread->context.uc_stack.ss_sp = thread->stack;
     thread->context.uc_stack.ss_size = sizeof(thread->stack);
     thread->context.uc_link = &manager;
-    makecontext(&thread->context, thread->func, thread->param);  // 修改getcontext获取的ucp，如果ucp后面通过setcontext/swapcontext被激活，则函数func将被调用
-    thread->name = name;
-    thread->func = func;
-    thread->param = param;
-    dlist_push_right(thread_list, thread);
+    makecontext(&thread->context, (void (*)(void))func, 1, param); 
+    dlist_push_right(&thread_list, thread);
     return thread;
 }
 
