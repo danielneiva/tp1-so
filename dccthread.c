@@ -27,11 +27,13 @@ struct dccthread {
 };
 
 void schedule(void) {
-    dccthread_t *current = dccthread_self();
-    //dccthread_yield();
-    dlist_push_right(thread_list, current);
-    dccthread_t *next = dlist_pop_left(thread_list);
-    swapcontext(&manager, &next->context);
+    while(1) {
+        dccthread_t *current = dccthread_self();
+        dccthread_yield();
+        dlist_push_right(thread_list, current);
+        dccthread_t *next = dlist_pop_left(thread_list);
+        swapcontext(&manager, &next->context);
+    }
 }
 
 void dccthread_create_manager(void) {
@@ -64,13 +66,17 @@ dccthread_t *dccthread_create(const char *name, void (*func)(int), int param) {
 
 void dccthread_yield(void) {
     dccthread_t *current = dccthread_self();
-    current->isRunning = 0;
-    swapcontext(&current->context, &manager);
+    if (current != NULL) {
+        current->isRunning = 0;
+        swapcontext(&current->context, &manager);
+    }
 }
 
 dccthread_t *dccthread_self(void) {
     struct dnode *aux = thread_list->head;
+    if (aux == NULL || aux->data == NULL) return NULL;
     dccthread_t *data = (dccthread_t *) aux->data;
+    if (thread_list->count == 1 && data->isRunning == 0) return NULL;
     while(data->isRunning != 1 && aux->next != NULL) {
         aux = aux->next;
         data = (dccthread_t *) aux->data;
