@@ -35,7 +35,7 @@ void dccthread_init(void (*func)(int), int param) {
         }
         swapcontext(&manager, &current->context);
         current = dlist_pop_left(thread_list);
-        if (current->is_yielded) {
+        if (current->is_yielded || current->waiting_for != NULL) {
             current->is_yielded = 0;
             dlist_push_right(thread_list, current);
         }
@@ -63,7 +63,7 @@ void dccthread_yield(void) {
 }
 
 dccthread_t *dccthread_self(void) {
-    return dlist_get_index(thread_list, 0);
+    return (dccthread_t *)dlist_get_index(thread_list, 0);
 }
 
 void dccthread_exit(void){
@@ -74,9 +74,7 @@ void dccthread_exit(void){
             thread->waiting_for = NULL;
         }
     }
-    //free(current->context.uc_stack.ss_sp);
-    current->is_yielded = 0;
-    setcontext(&manager);
+    swapcontext(&current->context, &manager);
 }
 
 void dccthread_wait(dccthread_t *tid) {
@@ -89,7 +87,7 @@ void dccthread_wait(dccthread_t *tid) {
         }
     }
 
-    if (!finished) {
+    if (finished) {
         dccthread_t *current = dlist_get_index(thread_list, 0);
         current->waiting_for = tid;
         swapcontext(&current->context, &manager);
