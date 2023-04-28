@@ -34,6 +34,11 @@ void handle_error(char *error_name) {
     printf("There has been an error executing the code: %s\n", error_name);
 }
 
+void wake_thread() {
+    printf("acorda fedaputa\n");
+}
+
+
 void dccthread_init(void (*func)(int), int param) {
     dccthread_t *current;
     thread_list = dlist_create();
@@ -46,8 +51,8 @@ void dccthread_init(void (*func)(int), int param) {
 	sigaddset(&mask, SIGRTMAX);
 	sigprocmask(SIG_SETMASK, &mask, NULL);	
 
-	sigemptyset(&sleep_mask);
-	sigaddset(&sleep_mask, SIGRTMAX);
+	sigemptyset(&sleeping_mask);
+	sigaddset(&sleeping_mask, SIGRTMAX);
 
     manager.uc_sigmask = mask;
 
@@ -68,8 +73,8 @@ void dccthread_init(void (*func)(int), int param) {
 	timer_settime(timer_id, 0, &sig_spec, NULL);
 
     while (!dlist_empty(thread_list) || !dlist_empty(sleeping_threads)) { 
-		sigprocmask(SIG_UNBLOCK, &sleep_mask, NULL);
-		sigprocmask(SIG_BLOCK, &sleep_mask, NULL);
+		sigprocmask(SIG_UNBLOCK, &sleeping_mask, NULL);
+		sigprocmask(SIG_BLOCK, &sleeping_mask, NULL);
         current = (dccthread_t *)dlist_get_index(thread_list, 0);
 
         if (current->waiting_for != NULL) {
@@ -166,26 +171,22 @@ void dccthread_sleep(struct timespec ts) {
 	sleep_sig_action.sa_flags = SA_SIGINFO;
 	sleep_sig_action.sa_sigaction = wake_thread;
 	sleep_sig_action.sa_mask = mask;
-	sigaction(SIGRTMAX, &t_sleep_act, NULL);
+	sigaction(SIGRTMAX, &sleep_sig_action, NULL);
 
 	sleep_sig_event.sigev_notify = SIGEV_SIGNAL;
 	sleep_sig_event.sigev_signo = SIGRTMAX;
-	sleep_sig_event.sigev_value.sival_ptr = current_thread;
-	timer_create(CLOCK_REALTIME, &sig_sleep_event, &sleeper_id);
+	sleep_sig_event.sigev_value.sival_ptr = current;
+	timer_create(CLOCK_REALTIME, &sleep_sig_event, &sleeper_id);
 
 	sleep_sig_spec.it_value = ts;
 	sleep_sig_spec.it_interval.tv_sec = 0;
 	sleep_sig_spec.it_interval.tv_nsec = 0;
-	timer_settime(t_sleep, 0, &time_out_CPU, NULL);
+	timer_settime(sleeper_id, 0, &sleep_sig_spec, NULL);
 
 	dlist_push_right(sleeping_threads, current);
 
-	swapcontext(&current_thread->context, &manager);
+	swapcontext(&current->context, &manager);
 	sigprocmask(SIG_UNBLOCK, &mask, NULL);
-}
-(
-void wake_thread() {
-    printf("acorda fedaputa\n");
 }
 
 const char * dccthread_name(dccthread_t *tid) {
