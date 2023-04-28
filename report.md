@@ -31,7 +31,7 @@
       
       Há algumas variáveis globais como *manager* que também armazena contexto. Foram definidas listas do tipo dlist para armazenar as threads e as threads que estão como sleep.
       
-      A *dccthread_init* recebe um ponteiro para a função func que por sua vez recebe um inteiro, além do inteiro param. 
+      A *dccthread_init* recebe um ponteiro para a função func que por sua vez recebe um inteiro, além do inteiro param... 
       
       A *dccthread_create* ...
       
