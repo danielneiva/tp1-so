@@ -14,7 +14,6 @@
 
 ucontext_t manager;
 struct dlist *active_threads;
-struct dlist *sleeping_threads;
 sigset_t mask;
 sigset_t sleeping_mask;
 timer_t timer_id;
@@ -30,6 +29,7 @@ struct dccthread {
     void (*func)(int);
     int param;
     int is_yielded;
+    int is_sleeping;
 };
 
 //dlist_find_remove removes the element when cmp is false
@@ -38,22 +38,15 @@ int compare_threads(const void *t1, const void *t2, void *userdata) {
 }
 
 void wake_thread(int sig, siginfo_t *sig_info, void *var) {
-	dlist_find_remove(sleeping_threads, (dccthread_t *)sig_info->si_value.sival_ptr, compare_threads, NULL);
-	dlist_push_right(active_threads, (dccthread_t *)sig_info->si_value.sival_ptr);
+    dccthread_t *thread = (dccthread_t *)sig_info->si_value.sival_ptr;
+	thread->is_sleeping = 0;
 }
 
 int thread_exists(dccthread_t *needle) {
-    if (dlist_empty(active_threads) && dlist_empty(sleeping_threads)) return 0;
+    if (dlist_empty(active_threads)) return 0;
 
-    struct dnode *current = sleeping_threads->head;
+    struct dnode *current = active_threads->head;
 
-    while (current != NULL) {
-        if ((dccthread_t *)current->data == needle)
-            return 1;
-        current = current->next;
-    }
-
-    current = active_threads->head;
     while (current != NULL) {
         if ((dccthread_t *)current->data == needle)
             return 1;
@@ -66,7 +59,6 @@ int thread_exists(dccthread_t *needle) {
 void dccthread_init(void (*func)(int), int param) {
     dccthread_t *current;
     active_threads = dlist_create();
-    sleeping_threads = dlist_create();
     dccthread_create("main", func, param);
     getcontext(&manager);
 
@@ -96,11 +88,15 @@ void dccthread_init(void (*func)(int), int param) {
     sig_spec.it_interval.tv_nsec = INTERVAL;
 	timer_settime(timer_id, 0, &sig_spec, NULL);
 
-    while (!dlist_empty(active_threads) || !dlist_empty(sleeping_threads)) { 
+    while (!dlist_empty(active_threads)) { 
 		sigprocmask(SIG_UNBLOCK, &sleeping_mask, NULL);
 		sigprocmask(SIG_BLOCK, &sleeping_mask, NULL);
         current = (dccthread_t *)dlist_get_index(active_threads, 0);
-
+        if (current->is_sleeping) {
+            current = dlist_pop_left(active_threads);
+            dlist_push_right(active_threads, current);
+            continue;
+        }
         if (current->waiting_for != NULL) {
             if (thread_exists(current->waiting_for)) {
                 current = dlist_pop_left(active_threads);
@@ -127,10 +123,12 @@ dccthread_t *dccthread_create(const char *name, void (*func)(int), int param) {
     dccthread_t *thread = malloc(sizeof(dccthread_t));
     getcontext(&thread->context);
     strcpy(thread->name, name);
-    thread->context.uc_stack.ss_sp = thread->stack;
+    thread->waiting_for = NULL;
+    thread->is_sleeping = 0;
+    thread->is_yielded = 0;
+    thread->context.uc_stack.ss_sp = &thread->stack;
     thread->context.uc_stack.ss_size = sizeof(thread->stack);
     thread->context.uc_link = &manager;
-    thread->waiting_for = NULL;
 	sigemptyset(&thread->context.uc_sigmask);
     makecontext(&thread->context, (void (*)(void))func, 1, param); 
     dlist_push_right(active_threads, thread);
@@ -210,7 +208,8 @@ void dccthread_sleep(struct timespec ts) {
 	timer_create(CLOCK_REALTIME, &sleep_sig_event, &sleeper_id);
 	timer_settime(sleeper_id, 0, &sleep_sig_spec, NULL);
 
-	dlist_push_right(sleeping_threads, current);
+    current->is_sleeping = 1;
+	dlist_push_right(active_threads, current);
 
 	swapcontext(&current->context, &manager);
 
