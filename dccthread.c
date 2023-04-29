@@ -88,8 +88,8 @@ void dccthread_init(void (*func)(int), int param) {
     sig_spec.it_interval.tv_nsec = INTERVAL;
 	timer_settime(timer_id, 0, &sig_spec, NULL);
 
+    sigprocmask(SIG_BLOCK, &mask, NULL);
     while (!dlist_empty(active_threads)) { 
-		sigprocmask(SIG_BLOCK, &mask, NULL);
 		sigprocmask(SIG_UNBLOCK, &sleeping_mask, NULL);
 		sigprocmask(SIG_BLOCK, &sleeping_mask, NULL);
         current = (dccthread_t *)dlist_get_index(active_threads, 0);
@@ -114,7 +114,6 @@ void dccthread_init(void (*func)(int), int param) {
             current->is_yielded = 0;
             dlist_push_right(active_threads, current);
         }
-		sigprocmask(SIG_UNBLOCK, &mask, NULL);
     }
     exit(0);
 }
